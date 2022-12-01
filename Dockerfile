@@ -1,6 +1,6 @@
 FROM node:16
-WORKDIR /app
-COPY build .
-RUN npm install -g serve
+WORKDIR /home/root
+COPY . .
+RUN npm install
 EXPOSE 3000
-CMD [ "serve", "-s", "." ]
+CMD [ "yarn", "start" ]
