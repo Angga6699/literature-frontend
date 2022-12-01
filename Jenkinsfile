@@ -1,82 +1,50 @@
-def branch = "production"
-def remoteurl = "https://github.com/Angga6699/literature-frontend.git"
-def remotename = "origin"
-def workdir = "~/literature-frontend/"
-def ip = "192.168.100.59"
-def username = "angga"
+def server = "angga@192.168.100.59"
+def credential = "angga"
+def workdir = "/home/angga/literature-frontend"
 def imagename = "angga/literature-frontend"
-def sshkeyid = "app-frontend"
-def composefile = "docker-compose.yml"
-def TOKEN = "5585024777:AAHJgUihNfKMr5EYZJk860gos5LlMQgQm78"
-def chatid = "-5206648288"
+def branch = "Production"
 
 pipeline {
     agent any
 
     stages {
-        stage('Pull From Frontend Repo') {
+        stage('Pull from Github') {
             steps {
-                sshagent(credentials: ["${sshkeyid}"]) {
+                sshagent(credentials: ["${credential}"]) {
                     sh """
-                        ssh -l ${username} ${ip} <<pwd
+                        ssh -o StrictHostKeyChecking=no ${server} << EOF
                         cd ${workdir}
-                        git remote add ${remotename} ${remoteurl} || git remote set-url ${remotename} ${remoteurl}
-                        git pull ${remotename} ${branch}
-                        pwd
+                        git pull origin ${branch}
                     """
                 }
             }
         }
             
-        stage('Build Docker Image') {
+        stage('Build docker image') {
             steps {
-                sshagent(credentials: ["${sshkeyid}"]) {
+                sshagent(credentials: ["${credential}"]) {
                     sh """
-                        ssh -l ${username} ${ip} <<pwd
+                        ssh -o StrictHostKeyChecking=no ${server} << EOF
                         cd ${workdir}
-                        docker build -t ${imagename} .
-                        pwd
+                        docker build -t ${imagename}:${env.BUILD_ID} .
                     """
                 }
             }
         }
             
-        stage('Deploy Image') {
+        stage('Deploy image into container') {
             steps {
-                sshagent(credentials: ["${sshkeyid}"]) {
+                sshagent(credentials: ["${credential}"]) {
                     sh """
-                        ssh -l ${username} ${ip} <<pwd
+                        ssh -o StrictHostKeyChecking=no ${server} << EOF
                         cd ${workdir}
-                        // docker compose -f ${composefile} down
-                        docker compose -f ${composefile} up -d
-                        pwd
+                        docker compose down
+                        docker rmi ${imagename}:latest
+                        docker tag ${imagename}:${env.BUILD_ID} ${imagename}:latest
+                        docker compose up -d
                     """
-                }
+                        }
             }
         }
-
-        stage('Push to Docker Hub') {
-            steps {
-                sshagent(credentials: ["${sshkeyid}"]) {
-                    sh """
-                        ssh -l ${username} ${ip} <<pwd
-                        docker image push ${imagename}
-                        docker image prune -f --all
-                        pwd
-                    """
-                }
-            }
-        }
-
-
-        stage('Send Success Notification') {
-            steps {
-                sh """
-                    curl -X POST 'https://api.telegram.org/bot${env.telegramapi}/sendMessage' -d \
-		    'chat_id=${env.telegramid}&text=Build ID #${env.BUILD_ID} Frontend Pipeline Successful!'
-                """
-            }
-        }
-
     }
 }
